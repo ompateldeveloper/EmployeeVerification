@@ -188,7 +188,7 @@ export default function Admin() {
                         <div className="flex ">
                             {recept && (
                                 <div className="max-w-64">
-                                    <QRCode size={256} style={{ height: "auto", maxWidth: "100%", width: "100%" }} value={"http://localhost:5173/verify" + recept.hex} viewBox={`0 0 256 256`} />
+                                    <QRCode size={256} style={{ height: "auto", maxWidth: "100%", width: "100%" }} value={"https://employee-verification.netlify.app/verify" + recept.hex} viewBox={`0 0 256 256`} />
                                 </div>
                             )}
                         </div>
