@@ -26,8 +26,9 @@ export default function Verify() {
             setDetails({
                 name: tx[0],
                 company: tx[1],
-                startDate: format(Date(Number(BigInt(tx[2]))), "dd MMM yyyy"),
-                endDate: format(Date(Number(BigInt(tx[3]))), "dd MMM yyyy"),
+                // startDate: format(Date(Number(BigInt(tx[2]))), "dd MMM yyyy"),
+                startDate: tx[2],
+                endDate:tx[3]
             });
         } catch (err) {
             setError(err.message || "Failed to fetch details");
