@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, Copy } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { ethers } from "ethers";
@@ -32,12 +32,13 @@ const formSchema = z
 
 export default function Admin() {
     const [submitSuccess, setSubmitSuccess] = useState(false);
-    const [dialogOpen, setDialogOpen] = useState(false);
     const [recept, setRecept] = useState(null);
+    const dialogBtnRef = useRef(null);
     const {
         register,
         control,
         handleSubmit,
+        reset,
         formState: { errors },
     } = useForm({
         resolver: zodResolver(formSchema),
@@ -51,26 +52,44 @@ export default function Admin() {
 
         const contract = new ethers.Contract(contractAddress, abi, signer);
 
-        const tx = await contract.addExperience(data.name, data.company, Math.floor(data.startDate.getTime() / 1000), Math.floor(data.endDate.getTime() / 1000));
-        console.log(contract);
+        const tx = await contract.addExperience(data.name, data.company, String(data.startDate), String(data.endDate));
         const receipt = await tx.wait();
-        setDialogOpen(true);
+        dialogBtnRef.current.click();
         setRecept({
             hex: receipt.logs[0].args[0],
             name: receipt.logs[0].args[1],
             company: receipt.logs[0].args[2],
         });
-        console.log(receipt.logs[0].args[0]);
-        console.log(receipt.logs[0].args[1]);
-        console.log(receipt.logs[0].args[2]);
-        console.log(receipt.logs[0].args[3]);
-        console.log(receipt.logs[0].args[4]);
-
+        reset()
         setSubmitSuccess(true);
     };
-
-    const [connected, setConnected] = useState(false);
+    const [connected, setConnected] = useState();
     const [walletAddress, setWalletAddress] = useState("");
+
+    async function checkMetaMaskConnection() {
+        if (typeof window.ethereum !== "undefined") {
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const accounts = await provider.listAccounts();
+
+            if (accounts.length > 0) {
+                // MetaMask is connected, accounts[0] contains the connected address
+                setConnected(true);
+                return true;
+            } else {
+                // MetaMask is not connected
+                console.log("MetaMask is installed but not connected.");
+                setConnected(false);
+                return false;
+            }
+        } else {
+            console.log("MetaMask is not installed.");
+            setConnected(false);
+            return false;
+        }
+    }
+    useEffect(() => {
+        checkMetaMaskConnection();
+    }, []);
 
     // Function to connect/disconnect the wallet
     async function connectWallet() {
@@ -108,11 +127,19 @@ export default function Admin() {
             </div>
         );
     }
+    const handleCopy = async () => {
+        try {
+            const text = `https://employee-verification.netlify.app/verify/${recept.hex}`;
+            await navigator.clipboard.writeText(text);
+            console.log("Text copied to clipboard!");
+        } catch (error) {
+            console.error("Failed to copy text:", error);
+        }
+    };
     return (
         <div className="max-w-md mx-auto mt-10">
             <div className=" font-semibold text-xl">Admin</div>
             <div className="py-2">
-                {connected && "connected as: " + walletAddress}
                 <Button className="btn" variant={"destructive"} onClick={connectWallet}>
                     Disconnect Wallet
                 </Button>
@@ -174,24 +201,36 @@ export default function Admin() {
                     {errors.endDate && <p className="text-red-500 text-sm mt-1">{errors.endDate.message}</p>}
                 </div>
 
-                <Dialog open={dialogOpen}>
+                <Dialog>
+                    <DialogTrigger ref={dialogBtnRef}></DialogTrigger>
                     <Button type="submit" className="w-full">
                         Submit
                     </Button>
-                    <DialogTrigger>yoho</DialogTrigger>
                     <DialogContent>
                         <DialogHeader>
                             <DialogTitle>Share This code With employee</DialogTitle>
                             <DialogDescription>or Scan image to see details </DialogDescription>
                         </DialogHeader>
-                        <div className="w-full truncate">{recept && recept.hex}</div>
-                        <div className="flex ">
-                            {recept && (
+                        {recept && (
+                            <div className="flex gap-4 ">
                                 <div className="max-w-64">
-                                    <QRCode size={256} style={{ height: "auto", maxWidth: "100%", width: "100%" }} value={"https://employee-verification.netlify.app/verify/" + recept.hex} viewBox={`0 0 256 256`} />
+                                    <QRCode
+                                        style={{ height: "auto", maxWidth: "100%", width: "100%" }}
+                                        value={"https://employee-verification.netlify.app/verify/" + recept.hex}
+                                        viewBox={`0 0 256 256`}
+                                    />
                                 </div>
-                            )}
-                        </div>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => {
+                                        navigator.clipboard.writeText("https://employee-verification.netlify.app/verify/" + recept.hex);
+                                    }}
+                                >
+                                    Copy link To Clipboard
+                                    <Copy />
+                                </Button>
+                            </div>
+                        )}
                     </DialogContent>
                 </Dialog>
             </form>
